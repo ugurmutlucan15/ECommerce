@@ -1,0 +1,46 @@
+version: '3.4'
+
+services:
+  maindb:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+  
+  cartdb:
+    image: redis:alpine
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+
+  #loglama
+  mongodb:
+    image: mongo
+    
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    
+  graylog:
+    image: graylog/graylog:4.3.0-1
+  #loglama
+  
+  loginservice:
+    image: ${DOCKER_REGISTRY-}loginservice
+    build:
+      context: .
+      dockerfile: src/Services/LoginService/LoginService/Dockerfile
+      
+  catalogservice:
+    image: ${DOCKER_REGISTRY-}catalogservice
+    build:
+      context: .
+      dockerfile: src/Services/CatalogService/CatalogService/Dockerfile
+
+  cartservice:
+    image: ${DOCKER_REGISTRY-}cartservice
+    build:
+      context: .
+      dockerfile: src/Services/CartService/CartService/Dockerfile
+
+  orderservice:
+    image: ${DOCKER_REGISTRY-}orderservice
+    build:
+      context: .
+      dockerfile: src/Services/OrderService/OrderService/Dockerfile

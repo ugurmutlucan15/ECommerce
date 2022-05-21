@@ -1,0 +1,26 @@
+﻿{
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.Graylog",
+      "Serilog.Sinks.Console"
+    ],
+    "MinimumLevel": "Debug",
+    "WriteTo": [
+      {
+        "Name": "Graylog",
+        "Args": {
+          "hostnameOrAddress": "graylog",
+          "port": "12201",
+          "transportType": "Udp",
+          "facility": "OrderService"
+        }
+      },
+      {
+        "Name": "Console"
+      }
+    ],
+    "Properties": {
+      "Application": "OrderService"
+    }
+  }
+}

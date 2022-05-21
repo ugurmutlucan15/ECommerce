@@ -1,0 +1,170 @@
+version: '3.4'
+
+services:
+  maindb:
+    container_name: maindb
+    environment:
+      SA_PASSWORD: "Secret1234"
+      ACCEPT_EULA: "Y"
+    restart: always
+    ports:
+      - "1433:1433"
+    volumes:
+      - maindbdata:/var/opt/mssql
+    networks:
+      - local
+    
+  #loglama
+  mongodb:
+    container_name: log-mongo
+    image: mongo
+    ports:
+      - 27017:27017
+    networks:
+      - local
+
+  elasticsearch:
+    container_name: log-elasticsearch
+    environment:
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    deploy:
+     resources:
+       limits:
+         memory: 1g
+    networks:
+      - local
+
+  graylog:
+    container_name: log-graylog
+    environment:
+      - GRAYLOG_PASSWORD_SECRET=somepasswordpepper
+      # Password: admin
+      - GRAYLOG_ROOT_PASSWORD_SHA2=8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:9000/
+    entrypoint: /usr/bin/tini -- wait-for-it elasticsearch:9200 -- /docker-entrypoint.sh
+    restart: always
+    links:
+      - mongodb:mongo
+      - elasticsearch:elasticsearch
+    depends_on:
+      - mongodb
+      - elasticsearch
+    ports:
+      - 9000:9000 # Graylog web interface and REST API
+      - 5555:5555 # Raw/Plaintext TCP
+      - 1514:1514 # Syslog TCP
+      - 1514:1514/udp # Syslog UDP
+      - 12201:12201 # GELF TCP
+      - 12201:12201/udp # GELF UDP
+    networks:
+      - local
+  #loglama 
+          
+  cartdb:
+    container_name: cartdb
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - local
+  
+  
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - local
+  
+  
+  loginservice:
+    container_name: login-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+    depends_on:
+      - maindb
+      - graylog
+    ports:
+      - "8081:8080"
+      - "8082:443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    networks:
+      - local  
+        
+  catalogservice:
+    container_name: catalog-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+    depends_on:
+      - maindb
+      - logdb
+      - elasticsearch
+    ports:
+      - "8083:8080"
+      - "8084:443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    networks:
+      - local
+           
+  cartservice:
+    container_name: cart-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+    depends_on:
+      - maindb
+      - logdb
+      - cartdb
+    ports:
+      - "8085:8080"
+      - "8086:443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    networks:
+      - local
+            
+  orderservice:
+    container_name: order-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+    depends_on:
+      - maindb
+      - logdb
+    ports:
+      - "8087:8080"
+      - "8088:443"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/root/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/root/.aspnet/https:ro
+    networks:
+      - local
+        
+volumes:
+  logdbdata:
+    driver: local
+  maindbdata:
+    driver: local
+
+networks:
+  local:
+    driver: bridge
